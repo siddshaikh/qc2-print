@@ -84,7 +84,7 @@ const Login = () => {
   };
   return (
     <Grid container component="main" className={classes.root}>
-      <Grid item xs={12} sm={8} md={6} lg={4} xl={3} alignSelf="center">
+      <Grid item xs={12} sm={8} md={6} lg={4} xl={3}>
         <Paper elevation={3} className={classes.paper}>
           <Typography component="h1" variant="h5">
             Login

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
 import {
   makeStyles,
   Typography,
@@ -7,9 +7,12 @@ import {
   MenuItem,
   TextField,
   Divider,
+  Button,
 } from "@material-ui/core";
 import useFetchData from "../hooks/fetchData";
 import Loader from "./Loader";
+import { Qc2Context } from "../context/Qc2Provider";
+import axios from "axios";
 
 const useStyles = makeStyles((theme) => ({
   formControl: {
@@ -38,49 +41,112 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 const DDComp = () => {
+  const { userToken, setQc2PrintTableData } = useContext(Qc2Context);
   const classes = useStyles();
-  const base_url = process.env.REACT_APP_BASE_URL;
-  // dates
-  const [fromDate, setFromDate] = useState(
-    new Date().toISOString().slice(0, 16)
-  );
-  const [toDate, setToDate] = useState(new Date().toISOString().slice(0, 16));
+  const BASE_URL = process.env.REACT_APP_BASE_URL;
+  // loading for the tabledata search
+  const [isTableDataLoading, setIsTableDataLoading] = useState(false);
+  const currentDate = new Date();
+  const year = currentDate.getFullYear();
+  const month = String(currentDate.getMonth() + 1).padStart(2, "0");
+  const day = String(currentDate.getDate()).padStart(2, "0");
+
+  const formattedFromDate = `${year}-${month}-${day} 00:00:00`;
+  const formattedToDate = `${year}-${month}-${day} 23:59:59`;
+
+  const [fromDate, setFromDate] = useState(formattedFromDate);
+  const [toDate, setToDate] = useState(formattedToDate);
   // clients
   const [client, setClient] = useState("");
-  const { data: clientData } = useFetchData(`${base_url}/clientlist`);
+  const { data: clientData } = useFetchData(`${BASE_URL}/clientlist`);
+  // with category without category
+  const [withWithoutCate, setWithWthoutCate] = useState("");
+  // categories
+  const [categories, setCategories] = useState("");
   // companies
   const [companies, setCompanies] = useState([]);
   const { data: companyData } = useFetchData(
-    `${base_url}/companylist/${client}`
+    `${BASE_URL}/companylist/${client}`
   );
+  // cities
+  const [cities, setCities] = useState("");
+  const { data: cityData } = useFetchData(`${BASE_URL}/citieslist/`);
   // languages
   const [languages, setLanguages] = useState([]);
-  const { data: languageData } = useFetchData(`${base_url}/languagelist/`);
+  const { data: languageData } = useFetchData(`${BASE_URL}/languagelist/`);
   // publication group
   const [publicationGroup, setPublicationGroup] = useState("");
-  const { data: publicationGroupData, loading: publicationGroupDataLoading } =
-    useFetchData(`${base_url}/publicationgroups/`);
+  const { data: publicationGroupData } = useFetchData(
+    `${BASE_URL}/publicationgroups/`
+  );
+  // reporting subject
+  const [reportingSubject, setReportingSubject] = useState("");
+  // reporting tone
+  const [reportingTone, setReportingTone] = useState("");
   // publication
   const [publications, setPublications] = useState("");
   const { data: publicationsdata } = useFetchData(
-    `${base_url}/publications/${publicationGroup}`
+    `${BASE_URL}/publications/${publicationGroup}`
   );
+  // pubtype
+  const [pubType, setPubType] = useState("");
   // qc1Userlist
   const [qc1Users, setQC1Users] = useState([]);
-  const { data: qc1UserData } = useFetchData(`${base_url}/qcuserlist/`);
+  const { data: qc1UserData } = useFetchData(`${BASE_URL}/qcuserlist/`);
   // qc2userlist
   const [qc2Users, setQC2Users] = useState([]);
-  const { data: qc2UserData } = useFetchData(`${base_url}/qcuserlist/`);
+  const { data: qc2UserData } = useFetchData(`${BASE_URL}/qcuserlist/`);
+  // page number
+  const [pageNumber, setPageNumber] = useState("");
+  // artical type
+  const [articalType, setArticalType] = useState("");
+  // tv
+  const [tv, setTv] = useState("");
   // loading for dropdown
   const [dropdownLoading, setDropdownLoading] = useState(false);
 
   const handleDropdownOpen = () => {
     setDropdownLoading(true);
 
-    // Simulating a delay for demonstration purposes
     setTimeout(() => {
       setDropdownLoading(false);
-    }, 2000); // Adjust this time to mimic the actual loading time of the dropdown
+    }, 2000);
+  };
+
+  // searching table data basis on values selection
+  const handleDataSearch = async () => {
+    setIsTableDataLoading(true);
+    try {
+      const formattedStringCompanies = companies
+        .map((item) => `'${item}'`)
+        .join(",");
+      console.log(formattedStringCompanies);
+      const requestData = {
+        client_id: client,
+        company_id: formattedStringCompanies,
+        date_type: "Upload",
+        from_date: fromDate.toLocaleString().replace("T", " "),
+        to_date: toDate.toLocaleString().replace("T", ""),
+        // search_text: "MG Motor",
+      };
+      const headers = {
+        Authorization: "Bearer " + userToken,
+      };
+      const response = await axios.post(
+        `${BASE_URL}/listArticlebyQCPrint/`,
+        requestData,
+        {
+          headers,
+        }
+      );
+      if (response?.data?.feed_data) {
+        setQc2PrintTableData(response.data.feed_data);
+        setIsTableDataLoading(false);
+      }
+    } catch (error) {
+      console.log(error);
+      setIsTableDataLoading(false);
+    }
   };
   return (
     <div className="relative">
@@ -136,9 +202,11 @@ const DDComp = () => {
                 id="demo-simple-select-outlined"
                 className={`${classes.select} ${classes.customMenu}`}
                 placeholder="select"
+                value={withWithoutCate}
+                onChange={(e) => setWithWthoutCate(e.target.value)}
               >
-                <MenuItem value={10}>With Category</MenuItem>
-                <MenuItem value={20}>No Category</MenuItem>
+                <MenuItem value={"With Category"}>With Category</MenuItem>
+                <MenuItem value={"No Category"}>No Category</MenuItem>
               </Select>
             </FormControl>
           </div>
@@ -151,10 +219,12 @@ const DDComp = () => {
                 id="demo-simple-select-outlined"
                 className={classes.select}
                 placeholder="select"
+                value={categories}
+                onChange={(e) => setCategories(e.target.value)}
               >
-                <MenuItem value={10}>Ten</MenuItem>
-                <MenuItem value={20}>Twenty</MenuItem>
-                <MenuItem value={30}>Thirty</MenuItem>
+                <MenuItem value={10}>10</MenuItem>
+                <MenuItem value={20}>20</MenuItem>
+                <MenuItem value={30}>30</MenuItem>
               </Select>
             </FormControl>
           </div>
@@ -204,10 +274,12 @@ const DDComp = () => {
                 id="demo-simple-select-outlined"
                 className={classes.select}
                 placeholder="select"
+                value={reportingSubject}
+                onChange={(e) => setReportingSubject(e.target.value)}
               >
-                <MenuItem value={10}>Ten</MenuItem>
-                <MenuItem value={20}>Twenty</MenuItem>
-                <MenuItem value={30}>Thirty</MenuItem>
+                <MenuItem value={10}>10</MenuItem>
+                <MenuItem value={20}>20</MenuItem>
+                <MenuItem value={30}>30</MenuItem>
               </Select>
             </FormControl>
           </div>
@@ -233,10 +305,12 @@ const DDComp = () => {
                 id="demo-simple-select-outlined"
                 className={classes.select}
                 placeholder="select"
+                value={reportingTone}
+                onChange={(e) => setReportingTone(e.target.value)}
               >
-                <MenuItem value={10}>Ten</MenuItem>
-                <MenuItem value={20}>Twenty</MenuItem>
-                <MenuItem value={30}>Thirty</MenuItem>
+                <MenuItem value={10}>10</MenuItem>
+                <MenuItem value={20}>20</MenuItem>
+                <MenuItem value={30}>30</MenuItem>
               </Select>
             </FormControl>
             <span className="flex items-center gap-2">
@@ -266,6 +340,10 @@ const DDComp = () => {
               </Select>
             </FormControl>
           </div>
+          {/* search button */}
+          <Button variant="text" color="default" onClick={handleDataSearch}>
+            {isTableDataLoading ? "Loading" : "Search"}
+          </Button>
         </div>
         <Divider style={{ margin: 2 }} />
         {/* divider */}
@@ -320,9 +398,32 @@ const DDComp = () => {
                 id="demo-simple-select-outlined"
                 className={classes.select}
                 placeholder="select"
+                value={cities}
+                onChange={(e) => setCities(e.target.value)}
+                MenuProps={{
+                  anchorOrigin: {
+                    vertical: "bottom", // Position of the menu relative to the dropdown
+                    horizontal: "left", // Position of the menu relative to the dropdown
+                  },
+                  transformOrigin: {
+                    vertical: "top", // Position of the selected item relative to the dropdown
+                    horizontal: "left", // Position of the selected item relative to the dropdown
+                  },
+                  getContentAnchorEl: null,
+                  PaperProps: {
+                    style: {
+                      maxHeight: 200,
+                      width: 200,
+                    },
+                  },
+                }}
               >
-                <MenuItem value={10}>OR</MenuItem>
-                <MenuItem value={20}>AND</MenuItem>
+                {cityData?.cities?.length > 0 &&
+                  cityData.cities.map((items) => (
+                    <MenuItem key={items.cityid} value={items.cityid}>
+                      {items.cityname}
+                    </MenuItem>
+                  ))}
               </Select>
             </FormControl>
             {/* language */}
@@ -388,10 +489,12 @@ const DDComp = () => {
                 id="demo-simple-select-outlined"
                 className={classes.select}
                 placeholder="select"
+                value={pubType}
+                onChange={(e) => setPubType(e.target.value)}
               >
-                <MenuItem value={10}>DAILY</MenuItem>
-                <MenuItem value={20}>MAGAZINE</MenuItem>
-                <MenuItem value={20}>ALL</MenuItem>
+                <MenuItem value={"Daily"}>DAILY</MenuItem>
+                <MenuItem value={"Magazine"}>MAGAZINE</MenuItem>
+                <MenuItem value={"All"}>ALL</MenuItem>
               </Select>
             </FormControl>
           </div>
@@ -425,10 +528,10 @@ const DDComp = () => {
                 className={classes.select}
                 placeholder="select"
               >
-                <MenuItem value={10}>NO</MenuItem>
-                <MenuItem value={20}>YES</MenuItem>
-                <MenuItem value={20}>PARTIAL NO</MenuItem>
-                <MenuItem value={20}>ALL</MenuItem>
+                <MenuItem value={"NO"}>NO</MenuItem>
+                <MenuItem value={"Yes"}>YES</MenuItem>
+                <MenuItem value={"Partial No"}>PARTIAL NO</MenuItem>
+                <MenuItem value={"All"}>ALL</MenuItem>
               </Select>
             </FormControl>
             {/* qc1 */}
@@ -440,9 +543,9 @@ const DDComp = () => {
                 className={classes.select}
                 placeholder="select"
               >
-                <MenuItem value={10}>YES</MenuItem>
-                <MenuItem value={20}>NO</MenuItem>
-                <MenuItem value={20}>ALL</MenuItem>
+                <MenuItem value={"Yes"}>YES</MenuItem>
+                <MenuItem value={"No"}>NO</MenuItem>
+                <MenuItem value={"All"}>ALL</MenuItem>
               </Select>
             </FormControl>
           </div>
@@ -450,19 +553,27 @@ const DDComp = () => {
           <div className="flex items-center justify-start gap-4 ml-2">
             {/* page number */}
             <Typography className={classes.typography}>Page Number</Typography>
-            <TextField variant="outlined" placeholder="0" size="small" />
+            <TextField
+              variant="outlined"
+              placeholder="0"
+              size="small"
+              value={pageNumber}
+              onChange={(e) => setPageNumber(e.target.value)}
+            />
             {/* artical type */}
-            <Typography className={classes.typography}>Artcal Type</Typography>
+            <Typography className={classes.typography}>Artical Type</Typography>
             <FormControl variant="outlined" className={classes.formControl}>
               <Select
                 labelId="demo-simple-select-outlined-label"
                 id="demo-simple-select-outlined"
                 className={classes.select}
                 placeholder="select"
+                value={articalType}
+                onChange={(e) => setArticalType(e.target.value)}
               >
-                <MenuItem>PRINT</MenuItem>
-                <MenuItem>INTERNET</MenuItem>
-                <MenuItem>ALL</MenuItem>
+                <MenuItem value={"Print"}>PRINT</MenuItem>
+                <MenuItem value={"Internet"}>INTERNET</MenuItem>
+                <MenuItem value="All">ALL</MenuItem>
               </Select>
             </FormControl>
             {/* TV */}
@@ -473,10 +584,12 @@ const DDComp = () => {
                 id="demo-simple-select-outlined"
                 className={classes.select}
                 placeholder="select"
+                value={tv}
+                onChange={(e) => setTv(e.target.value)}
               >
-                <MenuItem value={10}>ALL</MenuItem>
-                <MenuItem value={20}>YES</MenuItem>
-                <MenuItem value={20}>NO</MenuItem>
+                <MenuItem value={"All"}>ALL</MenuItem>
+                <MenuItem value={"Yes"}>YES</MenuItem>
+                <MenuItem value={"No"}>NO</MenuItem>
               </Select>
             </FormControl>
           </div>

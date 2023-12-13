@@ -7,12 +7,8 @@ const Main = () => {
   return (
     <div>
       <Header />
-      <div>
-        <DDComp />
-        <div className="overflow-scroll">
-          <Articalqc2Table />
-        </div>
-      </div>
+      <DDComp />
+      <Articalqc2Table />
     </div>
   );
 };
